@@ -7,6 +7,7 @@ strategy("GP Testing Strategy", overlay=true, initial_capital=10000, default_qty
 i_ma1 = input.int(title="EMA 1 Length", defval=5, step=1, group="Strategy Parameters", tooltip="Short-term EMA")
 i_ma2 = input.int(title="EMA 2 Length", defval=20, step=1, group="Strategy Parameters", tooltip="Long-term EMA")
 i_stopPercent = input.float(title="Stop Loss Percent", defval=0.10, step=0.1, group="Strategy Parameters", tooltip="Failsafe Stop Loss Percent Decline")
+i_buyVolume = input.float(title="Buy Volume (M)", defval=10, step=1, group="Strategy Parameters", tooltip="Volume Condition to Buy (in Millions)")
 // i_lowerClose = input.bool(title="Exit on Lower Close", defval=false, group="Strategy Parameters", tooltip="Wait for a lower-close before exiting above MA2")
 i_startTime = input.time(title="Start Filter", defval=timestamp("01 Jan 1990 00:00 +0000"), group="Time Filter", tooltip="Start Date")
 i_endTime = input.time(title="End Filter", defval=timestamp("01 Jan 2099 00:00 +0000"), group="Time Filter", tooltip="End Date")
@@ -18,7 +19,7 @@ f_dateFilter = time >= i_startTime and time <= i_endTime
 
 // check buy/sell condition
 var float buyPrice = 0
-buyCondition = ma1 > ma2 and strategy.position_size == 0 and f_dateFilter
+buyCondition = ma1 > ma2 and volume > i_buyVolume * 1000000 and strategy.position_size == 0 and f_dateFilter
 sellCondition = ma1 < ma2 and strategy.position_size > 0
 stopDistance = strategy.position_size > 0 ? ((buyPrice - close) / close) : na
 stopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_stopPercent) : na
