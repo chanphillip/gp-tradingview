@@ -22,22 +22,25 @@ f_dateFilter = time >= i_startTime and time <= i_endTime
 // check buy/sell condition
 var float buyPrice = 0
 volumeMA = ta.ema(volume, i_volumeMa)
+acceptableStopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_acceptableLossPercent) : na
 buyCondition = ma1 > ma2 and volume > volumeMA * i_buyVolume and strategy.position_size == 0 and f_dateFilter
-sellCondition = strategy.position_size > 0 and ma1 < ma2 and (close > buyPrice or (close < buyPrice - (buyPrice * i_acceptableLossPercent)))
+sellCondition = strategy.position_size > 0 and ma1 < ma2 and (close > buyPrice or close < acceptableStopPrice)
 stopDistance = strategy.position_size > 0 ? ((buyPrice - close) / close) : na
 stopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_stopPercent) : na
-acceptableStopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_acceptableLossPercent) : na
 stopCondition = strategy.position_size > 0 and stopDistance > i_stopPercent
 
 // enter positions
 if buyCondition
     strategy.entry(id="Long", direction=strategy.long)
 
+if strategy.position_size > 0
+    strategy.exit(id="Long", comment="Stop Loss", stop=stopPrice)
+
 if buyCondition[1]
     buyPrice := open
 
 // exit positions
-if sellCondition or stopCondition
+if sellCondition
     strategy.close(id="Long", comment="Exit " + (stopCondition ? "SL=true" : ""))
     buyPrice := na
 
