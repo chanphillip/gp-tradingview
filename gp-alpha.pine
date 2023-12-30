@@ -8,9 +8,9 @@ i_ma1 = input.int(title="EMA 1 Length", defval=5, step=1, group="Strategy Parame
 i_ma2 = input.int(title="EMA 2 Length", defval=20, step=1, group="Strategy Parameters", tooltip="Long-term EMA")
 i_volumeMa = input.int(title="Volume EMA Length", defval=20, step=1, group="Strategy Parameters", tooltip="Volume EMA")
 i_buyVolume = input.float(title="Buy Volume %", defval=80, step=1, group="Strategy Parameters", tooltip="Volume Condition to Buy (% Volume EMA)")
-// i_lowerClose = input.bool(title="Exit on Lower Close", defval=false, group="Strategy Parameters", tooltip="Wait for a lower-close before exiting above MA2")
 i_acceptableLossPercent = input.float(title="Acceptable Loss %", defval=0, step=10, group="Strategy Parameters", tooltip="Acceptable Loss Percent (only sell when loss more than this)")
 i_stopPercent = input.float(title="Stop Loss %", defval=10, step=1, group="Strategy Parameters", tooltip="Failsafe Stop Loss Percent Decline")
+i_profitPercent = input.float(title="Stop Profit %", defval=10, step=1, group="Strategy Parameters", tooltip="Stop Profit Percent")
 i_buyCross3Up = input.bool(title="Buy Condition: 3 cont up when crossing", defval=true, group="Strategy Parameters", tooltip="3 continuous up when EMA1 > EMA2")
 
 i_startTime = input.time(title="Start Filter", defval=timestamp("01 Jan 1990 00:00 +0000"), group="Time Filter", tooltip="Start Date")
@@ -31,6 +31,7 @@ buyCondition = ma1 > ma2 and volume > volumeMA * i_buyVolume / 100
 sellCondition = strategy.position_size > 0 and ma1 < ma2 and (close > buyPrice or close < acceptableStopPrice)
 stopDistance = strategy.position_size > 0 ? ((buyPrice - close) / close) : na
 stopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_stopPercent / 100) : na
+profitPrice = strategy.position_size > 0 ? buyPrice + (buyPrice * i_profitPercent / 100) : na
 stopCondition = strategy.position_size > 0 and stopDistance > i_stopPercent / 100
 
 // enter positions
@@ -39,6 +40,7 @@ if buyCondition
 
 if strategy.position_size > 0
     strategy.exit(id="Long", comment="Stop Loss", stop=stopPrice)
+    strategy.exit(id="Long", comment="Stop Profit", limit=profitPrice)
 
 if buyCondition[1]
     buyPrice := open
