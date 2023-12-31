@@ -26,28 +26,29 @@ var float buyPrice = 0
 volumeMA = ta.ema(volume, i_volumeMa)
 acceptableStopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_acceptableLossPercent / 100) : na
 buyCondition = ma1 > ma2 and volume > volumeMA * i_buyVolume / 100
-               and (not i_buyCross3Up or (i_buyCross3Up and close[2] > open[2] and close[1] > open[1] and close[0] > open[0] and ((ma1[3] < ma2[3] and ma1[2] > ma2[2]) or (ma1[2] < ma2[2] and ma1[1] > ma2[1]) or (ma1[1] < ma2[1] and ma1[0] > ma2[0]))))
+               and (not i_buyCross3Up or (i_buyCross3Up and ta.rising(close, 3) and (ta.cross(ma1[2], ma2[2]) or ta.cross(ma1[1], ma2[1]) or ta.cross(ma1[0], ma2[0]))))
                and strategy.position_size == 0 and f_dateFilter
 sellCondition = strategy.position_size > 0 and ma1 < ma2 and (close > buyPrice or close < acceptableStopPrice)
 stopDistance = strategy.position_size > 0 ? ((buyPrice - close) / close) : na
-stopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_stopPercent / 100) : na
-profitPrice = strategy.position_size > 0 ? buyPrice + (buyPrice * i_profitPercent / 100) : na
 stopCondition = strategy.position_size > 0 and stopDistance > i_stopPercent / 100
 
 // enter positions
 if buyCondition
     strategy.entry(id="Long", direction=strategy.long)
 
-if strategy.position_size > 0
-    strategy.exit(id="Long", comment="Stop Loss", stop=stopPrice)
-    strategy.exit(id="Long", comment="Stop Profit", limit=profitPrice)
-
 if buyCondition[1]
     buyPrice := open
 
+stopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_stopPercent / 100) : na
+profitPrice = strategy.position_size > 0 ? buyPrice + (buyPrice * i_profitPercent / 100) : na
+
+if buyCondition[1]
+    strategy.exit(id="Long", comment_loss="Stop Loss", comment_profit="Stop Profit", stop=stopPrice, limit=profitPrice)
+
 // exit positions
-if sellCondition
+if strategy.position_size > 0 and sellCondition
     strategy.close(id="Long", comment="Exit")
+    strategy.cancel(id="Long")
     buyPrice := na
 
 // draw
