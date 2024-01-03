@@ -26,7 +26,7 @@ var float buyPrice = 0
 volumeMA = ta.ema(volume, i_volumeMa)
 acceptableStopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_acceptableLossPercent / 100) : na
 buyCondition = ma1 > ma2 and volume > volumeMA * i_buyVolume / 100
-               and (not i_buyCross3Up or (i_buyCross3Up and ta.rising(close, 3) and (ta.cross(ma1[2], ma2[2]) or ta.cross(ma1[1], ma2[1]) or ta.cross(ma1[0], ma2[0]))))
+               and (not i_buyCross3Up or (close[0] > open[0] and close[1] > open[1] and close[2] > open[2] and (ta.crossover(ma1[2], ma2[2]) or ta.crossover(ma1[1], ma2[1]) or ta.crossover(ma1[0], ma2[0]))))
                and strategy.position_size == 0 and f_dateFilter
 sellCondition = strategy.position_size > 0 and ma1 < ma2 and (close > buyPrice or close < acceptableStopPrice)
 stopDistance = strategy.position_size > 0 ? ((buyPrice - close) / close) : na
