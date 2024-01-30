@@ -7,11 +7,12 @@ strategy("GP Testing Strategy", overlay=true, initial_capital=10000, default_qty
 i_ma1 = input.int(title="EMA 1 Length", defval=5, step=1, group="Strategy Parameters", tooltip="Short-term EMA")
 i_ma2 = input.int(title="EMA 2 Length", defval=20, step=1, group="Strategy Parameters", tooltip="Long-term EMA")
 i_volumeMa = input.int(title="Volume EMA Length", defval=20, step=1, group="Strategy Parameters", tooltip="Volume EMA")
-i_buyVolume = input.float(title="Buy Volume %", defval=80, step=1, group="Strategy Parameters", tooltip="Volume Condition to Buy (% Volume EMA)")
-i_acceptableLossPercent = input.float(title="Acceptable Loss %", defval=0, step=10, group="Strategy Parameters", tooltip="Acceptable Loss Percent (only sell when loss more than this)")
-i_stopPercent = input.float(title="Stop Loss %", defval=10, step=1, group="Strategy Parameters", tooltip="Failsafe Stop Loss Percent Decline")
-i_profitPercent = input.float(title="Stop Profit %", defval=10, step=1, group="Strategy Parameters", tooltip="Stop Profit Percent")
+i_buyVolume = input.float(title="Buy Volume %", defval=80, step=0.5, group="Strategy Parameters", tooltip="Volume Condition to Buy (% Volume EMA)")
+i_acceptableLossPercent = input.float(title="Acceptable Loss %", defval=0, step=0.5, group="Strategy Parameters", tooltip="Acceptable Loss Percent (only sell when loss more than this)")
+i_stopPercent = input.float(title="Stop Loss %", defval=10, step=0.5, group="Strategy Parameters", tooltip="Failsafe Stop Loss Percent Decline")
+i_profitPercent = input.float(title="Stop Profit %", defval=10, step=0.5, group="Strategy Parameters", tooltip="Stop Profit Percent")
 i_buyCross3Up = input.bool(title="Buy Condition: 3 cont up when crossing", defval=true, group="Strategy Parameters", tooltip="3 continuous up when EMA1 > EMA2")
+i_skipTradingOpenMinute = input.float(title="Skip Trading Open Minute", defval=0, step=1, group="Strategy Parameters", tooltip="Skip Trading within certain minutes after Market Open (only available before daily view)")
 
 i_startTime = input.time(title="Start Filter", defval=timestamp("01 Jan 1990 00:00 +0000"), group="Time Filter", tooltip="Start Date")
 i_endTime = input.time(title="End Filter", defval=timestamp("01 Jan 2099 00:00 +0000"), group="Time Filter", tooltip="End Date")
@@ -32,17 +33,31 @@ sellCondition = strategy.position_size > 0 and ma1 < ma2 and (close > buyPrice o
 stopDistance = strategy.position_size > 0 ? ((buyPrice - close) / close) : na
 stopCondition = strategy.position_size > 0 and stopDistance > i_stopPercent / 100
 
+// buy only if market open after certain minuites
+var marketOpenTime = 0
+minuteAfterOpen = 0
+isWithinDay = timeframe.isseconds or timeframe.isminutes
+if isWithinDay
+    if session.isfirstbar
+        marketOpenTime := time
+
+    minuteAfterOpen := (time - marketOpenTime) / 60 / 1000
+
+skipBuying = isWithinDay and minuteAfterOpen < i_skipTradingOpenMinute
+if skipBuying
+    buyCondition := false
+
+bgcolor(skipBuying ? color.rgb(80, 0, 0, 75) : na, title="Skip Trading Time")
+
 // enter positions
 if buyCondition
     strategy.entry(id="Long", direction=strategy.long)
+    buyPrice := close
 
-if buyCondition[1]
-    buyPrice := open
+stopPrice = buyCondition or strategy.position_size > 0 ? buyPrice - (buyPrice * i_stopPercent / 100) : na
+profitPrice = buyCondition or strategy.position_size > 0 ? buyPrice + (buyPrice * i_profitPercent / 100) : na
 
-stopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_stopPercent / 100) : na
-profitPrice = strategy.position_size > 0 ? buyPrice + (buyPrice * i_profitPercent / 100) : na
-
-if buyCondition[1]
+if buyCondition
     strategy.exit(id="Long", comment_loss="Stop Loss", comment_profit="Stop Profit", stop=stopPrice, limit=profitPrice)
 
 // exit positions
@@ -52,9 +67,10 @@ if strategy.position_size > 0 and sellCondition
     buyPrice := na
 
 // draw
-plot(buyPrice, color=color.lime, style=plot.style_linebr, title="Buy Price")
-plot(stopPrice, color=color.red, style=plot.style_linebr, offset=-1, title="Failsafe Price")
-plot(acceptableStopPrice, color=color.purple, style=plot.style_linebr, offset=-1, title="Acceptable Price")
+plot(buyPrice, color=color.maroon, style=plot.style_linebr, title="Buy Price")
+plot(stopPrice, color=color.red, style=plot.style_linebr, title="Failsafe Price")
+plot(profitPrice, color=color.lime, style=plot.style_linebr, title="Profit Price")
+plot(acceptableStopPrice, color=color.purple, style=plot.style_linebr, title="Acceptable Price")
 plot(ma1, color=color.blue, title="Short-term EMA")
 plot(ma2, color=color.orange, title="Long-term EMA")
 
