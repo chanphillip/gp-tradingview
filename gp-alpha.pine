@@ -11,7 +11,7 @@ i_buyVolume = input.float(title="Buy Volume %", defval=80, step=0.5, group="Stra
 i_acceptableLossPercent = input.float(title="Acceptable Loss %", defval=0, step=0.5, group="Strategy Parameters", tooltip="Acceptable Loss Percent (only sell when loss more than this)")
 i_stopPercent = input.float(title="Stop Loss %", defval=10, step=0.5, group="Strategy Parameters", tooltip="Failsafe Stop Loss Percent Decline")
 i_profitPercent = input.float(title="Stop Profit %", defval=10, step=0.5, group="Strategy Parameters", tooltip="Stop Profit Percent")
-i_buyCross3Up = input.bool(title="Buy Condition: 3 cont up when crossing", defval=true, group="Strategy Parameters", tooltip="3 continuous up when EMA1 > EMA2")
+i_buyCross3Up = input.int(title="Buy if N cont up when crossing", defval=0, step=1, group="Strategy Parameters", tooltip="Only Buy if N continuous up when EMA1 > EMA2")
 i_skipTradingOpenMinute = input.float(title="Skip Trading Open Minute", defval=0, step=1, group="Strategy Parameters", tooltip="Skip Trading within certain minutes after Market Open (only available before daily view)")
 
 i_startTime = input.time(title="Start Filter", defval=timestamp("01 Jan 1990 00:00 +0000"), group="Time Filter", tooltip="Start Date")
@@ -27,7 +27,6 @@ var float buyPrice = 0
 volumeMA = ta.ema(volume, i_volumeMa)
 acceptableStopPrice = strategy.position_size > 0 ? buyPrice - (buyPrice * i_acceptableLossPercent / 100) : na
 buyCondition = ma1 > ma2 and volume > volumeMA * i_buyVolume / 100
-               and (not i_buyCross3Up or (close[0] > open[0] and close[1] > open[1] and close[2] > open[2] and (ta.crossover(ma1[2], ma2[2]) or ta.crossover(ma1[1], ma2[1]) or ta.crossover(ma1[0], ma2[0]))))
                and strategy.position_size == 0 and f_dateFilter
 sellCondition = strategy.position_size > 0 and ma1 < ma2 and (close > buyPrice or close < acceptableStopPrice)
 stopDistance = strategy.position_size > 0 ? ((buyPrice - close) / close) : na
@@ -48,6 +47,18 @@ if skipBuying
     buyCondition := false
 
 bgcolor(skipBuying ? color.rgb(80, 0, 0, 75) : na, title="Skip Trading Time")
+
+// buy only if N cont up when crossing
+if i_buyCross3Up > 0
+    crossover = ta.crossover(ma1, ma2)
+    isAllUp = true
+    isCrossingOver = false
+    for i = 0 to i_buyCross3Up - 1
+        isAllUp := isAllUp and close[i] > open[i]
+        isCrossingOver := isCrossingOver or crossover[i]
+
+    if not isAllUp or not isCrossingOver
+        buyCondition := false
 
 // enter positions
 if buyCondition
