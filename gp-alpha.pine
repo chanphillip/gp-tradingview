@@ -4,6 +4,25 @@
 //@version=5
 strategy("GP Testing Strategy", overlay=true, initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.cash_per_contract, commission_value=0.005)
 
+f_isLastBar() =>
+    var int sessionDuration = na
+    var int sessionCalculatedLastBarTime = na
+
+    t = time("1440", session = session.regular) // Resolution of 1440 = 60*24 minutes in a whole day
+
+    // Calculate regular session duration for the symbol using very first day of the Bar Set
+    if na(sessionDuration) and (na(t[1]) and not na(t) or t[1] < t)
+        sessionDuration := (time[1] - t[1])
+
+    // Calculate time of the session's last bar by adding session duration to the time of the first bar of the session
+    // This does not correctly handle early close of exchange on or ahead of public holiday
+    // This will also not work correctly in realtime on the very first day of a new symbol listing on an Exchange
+    if na(t[1]) and not na(t) or t[1] < t
+        sessionCalculatedLastBarTime := t[0] + sessionDuration
+
+    // Return true if current bar's time == session's calculated last bar time otherwise return false
+    time[0] == sessionCalculatedLastBarTime
+
 i_ma1 = input.int(title="EMA 1 Length", defval=5, step=1, group="Strategy Parameters", tooltip="Short-term EMA")
 i_ma2 = input.int(title="EMA 2 Length", defval=20, step=1, group="Strategy Parameters", tooltip="Long-term EMA")
 i_volumeMa = input.int(title="Volume EMA Length", defval=20, step=1, group="Strategy Parameters", tooltip="Volume EMA")
@@ -12,7 +31,8 @@ i_acceptableLossPercent = input.float(title="Acceptable Loss %", defval=0, step=
 i_stopPercent = input.float(title="Stop Loss %", defval=10, step=0.5, group="Strategy Parameters", tooltip="Failsafe Stop Loss Percent Decline")
 i_profitPercent = input.float(title="Stop Profit %", defval=10, step=0.5, group="Strategy Parameters", tooltip="Stop Profit Percent")
 i_buyCross3Up = input.int(title="Buy if N cont up when crossing", defval=0, step=1, group="Strategy Parameters", tooltip="Only Buy if N continuous up when EMA1 > EMA2")
-i_skipTradingOpenMinute = input.float(title="Skip Trading Open Minute", defval=0, step=1, group="Strategy Parameters", tooltip="Skip Trading within certain minutes after Market Open (only available before daily view)")
+i_skipTradingOpenMinute = input.float(title="Skip Buying Open Minute", defval=0, step=1, group="Strategy Parameters", tooltip="Skip Buying within certain minutes after Market Open (only available before daily view)")
+i_skipBuyLastBar = input.bool(title="Skip Buying at the Last Bar", defval=false, group="Strategy Parameters", tooltip="Skip Buying at the Last Bar, right before Market Close (only available before daily view)")
 
 i_startTime = input.time(title="Start Filter", defval=timestamp("01 Jan 1990 00:00 +0000"), group="Time Filter", tooltip="Start Date")
 i_endTime = input.time(title="End Filter", defval=timestamp("01 Jan 2099 00:00 +0000"), group="Time Filter", tooltip="End Date")
@@ -42,7 +62,7 @@ if isWithinDay
 
     minuteAfterOpen := (time - marketOpenTime) / 60 / 1000
 
-skipBuying = isWithinDay and minuteAfterOpen < i_skipTradingOpenMinute
+skipBuying = isWithinDay and (minuteAfterOpen < i_skipTradingOpenMinute or (i_skipBuyLastBar and f_isLastBar() and barstate.isconfirmed))
 if skipBuying
     buyCondition := false
 
